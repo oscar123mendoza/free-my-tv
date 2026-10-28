@@ -25,8 +25,7 @@ public class HomeActivity extends Activity {
             // Don't try to draw again: only show a notice while the main process restores the original home screen.
             HomeMode.requestRevertHome(this);
             TextView t = new TextView(this);
-            t.setText(Ui.tr("O Início do Free My TV teve um problema.\nVoltando para o Início original da TV…",
-                    "Free My TV's home screen ran into a problem.\nGoing back to the TV's original home screen…"));
+            t.setText("Free My TV's home screen ran into a problem.\nGoing back to the TV's original home screen…");
             t.setTextColor(Color.WHITE);
             t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
             t.setGravity(Gravity.CENTER);
@@ -34,7 +33,6 @@ public class HomeActivity extends Activity {
             setContentView(t);
             return;
         }
-        Ui.init(this);
         home = new HomeView(this);
         setContentView(home);
         getWindow().setBackgroundDrawable(null);
@@ -44,8 +42,7 @@ public class HomeActivity extends Activity {
         super.onResume();
         if (prefsVersion != Prefs.version) {
             prefsVersion = Prefs.version;
-            HomeData.get(this).settingsChanged();
-            recreate();   // a new language or city: draw everything again
+            recreate();   // the app list changed: draw everything again
             return;
         }
         if (home != null) home.resume();
@@ -67,13 +64,7 @@ public class HomeActivity extends Activity {
         super.onDestroy();
     }
 
-    @Override public void onTrimMemory(int level) {
-        super.onTrimMemory(level);
-        if (level >= TRIM_MEMORY_COMPLETE) Recs.get(this).trim();
-    }
-
     @Override public boolean dispatchKeyEvent(KeyEvent event) {
-        if (RemoteKeys.onKey(this, event)) return true;
         if (home != null && home.onKey(event)) return true;
         return super.dispatchKeyEvent(event);
     }
