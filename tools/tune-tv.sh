@@ -1,12 +1,23 @@
 #!/usr/bin/env bash
 # Applies the same light tuning profile to one or more TVs over adb: animations at half length, so the TV feels quicker.
 # Only animation scales change (no picture, sound, network or account settings); --undo puts them back to 1.
-# Usage: tools/tune-tv.sh [--undo] <ip:port> [<ip:port> ...]
+# --free-memory also stops the apps you installed (never system apps), but only on a TV showing the Free My TV home
+# screen, so nobody loses what they are watching. The apps start again when opened. Android keeps them cached, so run it
+# again whenever memory feels tight.
+# Usage: tools/tune-tv.sh [--undo] [--free-memory] <ip:port> [<ip:port> ...]
 set -euo pipefail
 
 scale=0.5
-if [ "${1:-}" = "--undo" ]; then scale=1.0; shift; fi
-[ $# -gt 0 ] || { echo "Usage: tools/tune-tv.sh [--undo] <ip:port> [<ip:port> ...]"; exit 1; }
+free=false
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --undo) scale=1.0 ;;
+    --free-memory) free=true ;;
+    *) break ;;
+  esac
+  shift
+done
+[ $# -gt 0 ] || { echo "Usage: tools/tune-tv.sh [--undo] [--free-memory] <ip:port> [<ip:port> ...]"; exit 1; }
 command -v adb >/dev/null 2>&1 || { echo "adb not found. See README.md."; exit 1; }
 
 for tv in "$@"; do
@@ -15,6 +26,20 @@ for tv in "$@"; do
     adb -s "$tv" shell settings put global "$key" "$scale"
   done
   echo "$tv: animation scales set to $scale"
+
+  if $free; then
+    if adb -s "$tv" shell dumpsys activity activities | grep "topResumedActivity" | grep -q "io.freemytv"; then
+      stopped=0
+      for pkg in $(adb -s "$tv" shell pm list packages -3 | tr -d '\r' | cut -d: -f2); do
+        [ "$pkg" = "io.freemytv" ] && continue
+        adb -s "$tv" shell am force-stop "$pkg"
+        stopped=$((stopped + 1))
+      done
+      echo "$tv: stopped $stopped apps"
+    else
+      echo "$tv: something else is on screen, so no apps were stopped (open the Free My TV home screen and run it again)"
+    fi
+  fi
 done
 
 cat <<'EOF'
